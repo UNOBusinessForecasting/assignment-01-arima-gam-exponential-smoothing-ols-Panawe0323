@@ -1,4 +1,4 @@
-%pip install pygam
+# %pip install pygam
 from pygam import LinearGAM, s, f
 import pandas as pd
 import patsy as pt
