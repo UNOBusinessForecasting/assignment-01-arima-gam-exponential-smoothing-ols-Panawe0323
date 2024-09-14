@@ -1,58 +1,36 @@
-# Import required libraries
-from pygam import LinearGAM, s
+%pip install pygam
+from pygam import LinearGAM, s, f
 import pandas as pd
-import numpy as np
 import patsy as pt
+import numpy as np
 from plotly import subplots
 import plotly.offline as py
 import plotly.graph_objs as go
 
-# Load the training and test datasets
-train_df = pd.read_csv('https://github.com/dustywhite7/econ8310-assignment1/raw/main/assignment_data_train.csv')
-test_df = pd.read_csv('https://github.com/dustywhite7/econ8310-assignment1/raw/main/assignment_data_test.csv')
+# Load the train and test datasets
+train_df = pd.read_csv("https://github.com/dustywhite7/econ8310-assignment1/raw/main/assignment_data_train.csv")
+test_df = pd.read_csv("https://github.com/dustywhite7/econ8310-assignment1/raw/main/assignment_data_test.csv")
 
-# Prepare the equation for the GAM model: using hour, day, month, and year as smooth terms
-# 'trips' is the target variable, and we use hour, day, and other features as predictors
-eqn = "trips ~ -1 + s(hour) + s(day) + s(month) + year"
+# Prepare the training data - Selecting year, month, day, hour as features and trips as target
+X_train = train_df[['year', 'month', 'day', 'hour']]
+y_train = train_df['trips']
 
-# Generate y (dependent variable) and X (independent variables) matrices
-y, X = pt.dmatrices(eqn, data=train_df)
+# Prepare the test data
+X_test = test_df[['year', 'month', 'day', 'hour']]
 
-# Initialize and fit the model (using smooth terms for the features)
+# Initialize and fit the GAM model (you can try different combinations of smoothing terms)
 model = LinearGAM(s(0) + s(1) + s(2) + s(3))
 
-modelFit = model.gridsearch(np.asarray(X), y)
+modelFit = model.fit(X_train, y_train)
 
-# Plot partial dependence plots for the variables
-titles = ['hour', 'day', 'month', 'year']
-fig = subplots.make_subplots(rows=2, cols=2, subplot_titles=titles)
-fig['layout'].update(height=800, width=1200, title='Partial Dependence Plots for GAM', showlegend=False)
+# Making predictions for the test period (January 2019)
+pred = modelFit.predict(X_test)
 
-# Plot the partial dependence for each term
-for i, title in enumerate(titles):
-    XX = gam.generate_X_grid(term=i)
-    pdep, confi = gam.partial_dependence(term=i, width=.95)
-    
-    trace = go.Scatter(x=XX[:, i], y=pdep, mode='lines', name='Effect')
-    ci1 = go.Scatter(x=XX[:, i], y=confi[:, 0], line=dict(dash='dash', color='grey'), name='95% CI')
-    ci2 = go.Scatter(x=XX[:, i], y=confi[:, 1], line=dict(dash='dash', color='grey'), name='95% CI')
+# Storing the predictions in the test DataFrame and save the result
+test_df['predicted_trips'] = pred
 
-    # Arrange the plots in the grid
-    if i < 2:
-        fig.append_trace(trace, 1, i + 1)
-        fig.append_trace(ci1, 1, i + 1)
-        fig.append_trace(ci2, 1, i + 1)
-    else:
-        fig.append_trace(trace, 2, i - 1)
-        fig.append_trace(ci1, 2, i - 1)
-        fig.append_trace(ci2, 2, i - 1)
+# Saving predictions to a CSV file
+test_df.to_csv('predicted_taxi_trips.csv', index=False)
 
-py.plot(fig)
-
-# Making a Forecast for the test dataset (January 2019)
-# We need to align the new test data with the same feature set
-test_eqn = "trips ~ -1 + s(hour) + s(day) + s(month) + year"
-_, X_test = pt.dmatrices(test_eqn, data=test_df)
-
-# Predict on the test data
-pred = gam.predict(X_test)
+# printing the test DataFrame with predictions
+print(test_df[['year', 'month', 'day', 'hour', 'predicted_trips']].head())
